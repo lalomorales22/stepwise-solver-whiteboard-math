@@ -1,10 +1,13 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface SpeechSynthesisHook {
-  speak: (text: string, onEnd?: () => void) => void;
+  speak: (
+    text: string,
+    onSuccess?: () => void,
+    onErrorOccurred?: (errorEvent: SpeechSynthesisErrorEvent) => void
+  ) => void;
   cancel: () => void;
   isSpeaking: boolean;
   isSupported: boolean;
@@ -14,7 +17,9 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const onEndCallbackRef = useRef<(() => void) | null>(null);
+  
+  const onSuccessCallbackRef = useRef<(() => void) | null>(null);
+  const onErrorCallbackRef = useRef<((errorEvent: SpeechSynthesisErrorEvent) => void) | null>(null);
 
   useEffect(() => {
     setIsSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);
@@ -22,32 +27,45 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
 
   const handleEnd = useCallback(() => {
     setIsSpeaking(false);
-    if (onEndCallbackRef.current) {
-      onEndCallbackRef.current();
-      onEndCallbackRef.current = null;
+    if (onSuccessCallbackRef.current) {
+      onSuccessCallbackRef.current();
     }
+    onSuccessCallbackRef.current = null;
+    onErrorCallbackRef.current = null; 
   }, []);
 
-  const speak = useCallback((text: string, onEnd?: () => void) => {
-    if (!isSupported || !text) return;
+  const speak = useCallback((
+    text: string,
+    onSuccess?: () => void,
+    onErrorOccurred?: (errorEvent: SpeechSynthesisErrorEvent) => void
+  ) => {
+    if (!isSupported || !text) {
+      // If not supported or no text, call error callback immediately if provided,
+      // as speech cannot proceed.
+      if (onErrorOccurred) {
+        onErrorOccurred(new SpeechSynthesisErrorEvent('error', { error: 'unsupported_or_empty_text' }) as SpeechSynthesisErrorEvent);
+      }
+      return;
+    }
 
-    // Cancel any ongoing speech
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     }
     
-    onEndCallbackRef.current = onEnd || null;
+    onSuccessCallbackRef.current = onSuccess || null;
+    onErrorCallbackRef.current = onErrorOccurred || null;
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = handleEnd;
-    utterance.onerror = (event) => {
-      console.error('SpeechSynthesisUtterance.onerror - Error:', event.error, 'Event:', event);
+    utterance.onend = handleEnd; // This will call onSuccessCallbackRef
+    utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+      console.error('SpeechSynthesisUtterance.onerror - Error:', event.error, 'Event Details:', event);
       setIsSpeaking(false);
-      if (onEndCallbackRef.current) { // also call onEnd on error to proceed
-        onEndCallbackRef.current();
-        onEndCallbackRef.current = null;
+      if (onErrorCallbackRef.current) {
+        onErrorCallbackRef.current(event);
       }
+      onSuccessCallbackRef.current = null; 
+      onErrorCallbackRef.current = null;
     };
     
     utteranceRef.current = utterance;
@@ -56,13 +74,14 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
 
   const cancel = useCallback(() => {
     if (!isSupported || !window.speechSynthesis.speaking) return;
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
-    onEndCallbackRef.current = null; 
+    setIsSpeaking(false); // Set speaking to false immediately on cancel
+    window.speechSynthesis.cancel(); // This will also trigger 'onend' or 'onerror' with 'canceled'
+    // Clear callbacks as cancel means we are stopping the current utterance
+    onSuccessCallbackRef.current = null; 
+    onErrorCallbackRef.current = null;
   }, [isSupported]);
 
   useEffect(() => {
-    // Cleanup: cancel speech on component unmount if it's speaking
     return () => {
       if (isSupported && window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -12,16 +11,16 @@ import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { solveProblemAction } from '@/actions/solverActions';
 import type { SolutionData } from '@/types';
 import { saveProblemToGallery } from '@/lib/problem-storage';
-import { Save } from 'lucide-react'; // Removed Loader2 as it's not directly used here
+import { Save } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { loadProblemFromGallery } from '@/lib/problem-storage';
 
 
 export default function SolverPage() {
   const [problemStatement, setProblemStatement] = useState(''); 
-  const [solutionSteps, setSolutionSteps] = useState<string[]>([]); // These are for display (e.g. with HTML)
+  const [solutionSteps, setSolutionSteps] = useState<string[]>([]);
   const [whiteboardStepTexts, setWhiteboardStepTexts] = useState<string[]>([]);
-  const [narrationTexts, setNarrationTexts] = useState<string[]>([]); // Speakable texts
+  const [narrationTexts, setNarrationTexts] = useState<string[]>([]);
   
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -47,7 +46,6 @@ export default function SolverPage() {
           setNarrationTexts(problemData.narrationTexts);
           setCurrentStep(0);
           setIsPlaying(false);
-          // Clear the query param from URL after loading
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete('loadProblemId');
           router.replace(newUrl.pathname + newUrl.search, { scroll: false });
@@ -79,9 +77,9 @@ export default function SolverPage() {
       const result = await solveProblemAction({ problem: data.problemText, imageDataUri: data.imageDataUri });
       
       setProblemStatement(result.problemStatement); 
-      setSolutionSteps(result.solutionSteps); // For display
-      setWhiteboardStepTexts(result.whiteboardStepTexts); // Also for display, currently same as solutionSteps
-      setNarrationTexts(result.narrationTexts); // Speakable texts
+      setSolutionSteps(result.solutionSteps);
+      setWhiteboardStepTexts(result.whiteboardStepTexts);
+      setNarrationTexts(result.narrationTexts);
 
       if (result.solutionSteps.length === 0 || result.whiteboardStepTexts.length === 0 || result.narrationTexts.length === 0) {
         toast({
@@ -110,29 +108,53 @@ export default function SolverPage() {
   };
   
   const playStepAudio = useCallback((stepIndex: number) => {
+    if (!narrationTexts[stepIndex] && narrationTexts.length > 0) {
+      console.warn(`No narration text for step ${stepIndex}.`);
+      // If playing and not the last step, advance to next step after a short delay.
+      if (isPlaying && stepIndex < narrationTexts.length - 1) {
+        setTimeout(() => {
+          if (isPlaying) setCurrentStep(prev => prev + 1);
+        }, 500); 
+      } else {
+        setIsPlaying(false); // If it's the last step or not playing, stop.
+      }
+      return;
+    }
+
     if (isSupported && narrationTexts[stepIndex]) {
-      speak(narrationTexts[stepIndex], () => { // onEnd callback
-        if (isPlaying && stepIndex < narrationTexts.length - 1) {
-          setCurrentStep(prev => prev + 1);
-        } else {
+      speak(
+        narrationTexts[stepIndex],
+        () => { // onSuccess
+          if (isPlaying && stepIndex < narrationTexts.length - 1) {
+            setCurrentStep(prev => prev + 1);
+          } else {
+            setIsPlaying(false); 
+          }
+        },
+        (errorEvent) => { // onErrorOccurred
+          console.error(`Speech synthesis error on step ${stepIndex}:`, errorEvent.error, errorEvent);
           setIsPlaying(false); 
+          toast({
+            title: "Speech Error",
+            description: `Could not play audio for step ${stepIndex + 1}. ${errorEvent.error || 'Unknown speech error.'}`,
+            variant: "destructive",
+          });
         }
-      });
-    } else if (isPlaying && stepIndex < narrationTexts.length - 1) { // TTS not supported, but still playing
-        // Advance step after a delay to simulate audio playback
+      );
+    } else if (isPlaying && stepIndex < narrationTexts.length - 1) { 
         setTimeout(() => { 
             if(isPlaying) setCurrentStep(prev => prev + 1);
-        }, 1500); // Adjust delay as needed
-    } else if (isPlaying && stepIndex >= narrationTexts.length - 1) { // Reached end while playing (without TTS)
+        }, 1500); 
+    } else if (isPlaying && stepIndex >= narrationTexts.length - 1) { 
         setIsPlaying(false); 
     }
-  }, [isSupported, narrationTexts, speak, isPlaying]);
+  }, [isSupported, narrationTexts, speak, isPlaying, toast]);
 
 
   useEffect(() => {
     if (isPlaying && narrationTexts.length > 0 && currentStep < narrationTexts.length) {
       playStepAudio(currentStep);
-    } else if (!isPlaying && isSpeaking) { // If manually paused
+    } else if (!isPlaying && isSpeaking) { 
       cancel(); 
     }
   }, [isPlaying, currentStep, playStepAudio, narrationTexts, cancel, isSpeaking]);
@@ -141,10 +163,16 @@ export default function SolverPage() {
   const handlePlayPause = () => {
     if (narrationTexts.length === 0) return;
 
+    // If speech is active and user intends to pause
+    if (isSpeaking && isPlaying) {
+        cancel();
+        setIsPlaying(false);
+        return;
+    }
+
     if (!isPlaying && currentStep >= narrationTexts.length - 1 && narrationTexts.length > 0) {
-        // If at the end and play is pressed, reset to the beginning
         setCurrentStep(0);
-        setIsPlaying(true); // Start playing from the beginning
+        setIsPlaying(true);
     } else {
         setIsPlaying(prev => !prev);
     }
@@ -152,22 +180,22 @@ export default function SolverPage() {
 
   const handleNext = () => {
     if (currentStep < narrationTexts.length - 1) {
+      if (isSpeaking) cancel(); 
       setCurrentStep(prev => prev + 1);
-      if (isPlaying || isSpeaking) cancel(); 
     }
   };
 
   const handlePrev = () => {
     if (currentStep > 0) {
+      if (isSpeaking) cancel(); 
       setCurrentStep(prev => prev - 1);
-      if (isPlaying || isSpeaking) cancel(); 
     }
   };
 
   const handleSeek = (step: number) => {
     if (step >= 0 && step < narrationTexts.length) {
+      if (isSpeaking) cancel();
       setCurrentStep(step);
-      if (isPlaying || isSpeaking) cancel();
     }
   };
 
@@ -205,7 +233,7 @@ export default function SolverPage() {
             )}
             <WhiteboardDisplay steps={whiteboardStepTexts} currentStep={currentStep} problemStatement={problemStatement} /> 
             <PlaybackControls
-              totalSteps={narrationTexts.length} // Controls should be based on narration texts length
+              totalSteps={narrationTexts.length}
               currentStep={currentStep}
               isPlaying={isPlaying}
               onPlayPause={handlePlayPause}
@@ -228,3 +256,4 @@ export default function SolverPage() {
     </div>
   );
 }
+
