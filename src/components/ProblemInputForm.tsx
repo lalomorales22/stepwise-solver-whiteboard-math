@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Paperclip, Send } from 'lucide-react';
+import { Send, UploadCloud } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   problemText: z.string().min(5, { message: 'Problem description must be at least 5 characters.' }),
-  problemImage: z.any().optional(), // For file input
+  problemImage: z.any().optional(), // For file input (FileList or File[])
 });
 
 type ProblemInputFormProps = {
@@ -29,18 +31,60 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
   });
 
   const [fileName, setFileName] = React.useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     onSolve(values.problemText);
   }
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setFileName(event.target.files[0].name);
-      // Actual file processing would happen here if integrated with an OCR or image-understanding AI
+  const processFiles = (files: FileList | null) => {
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        setFileName(file.name);
+        form.setValue('problemImage', files); // Store the FileList for RHF
+      } else {
+        setFileName('Invalid file type. Please upload an image.');
+        form.setValue('problemImage', undefined); // Clear if invalid
+        // Consider using toast here for better UX if available/passed
+      }
     } else {
       setFileName(null);
+      form.setValue('problemImage', undefined);
     }
+  };
+
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    processFiles(event.target.files);
+  };
+
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation(); // Necessary to allow drop
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingOver(false);
+    processFiles(event.dataTransfer.files);
+  };
+
+  const handleDropZoneClick = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -65,31 +109,59 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
           )}
         />
 
-        <FormItem>
-          <FormLabel className="text-lg font-headline">Or upload an image (optional)</FormLabel>
-          <div className="flex items-center gap-2">
-            <FormControl>
-               <Input 
-                type="file" 
-                id="problemImage" 
-                className="hidden" 
-                accept="image/*" 
-                onChange={(e) => {
-                  form.setValue('problemImage', e.target.files); // RHF tracking
-                  handleFileChange(e); // UI update
-                }}
-                aria-label="Upload problem image"
-              />
-            </FormControl>
-            <Button type="button" variant="outline" asChild>
-              <label htmlFor="problemImage" className="cursor-pointer">
-                <Paperclip className="mr-2 h-4 w-4" /> Choose File
-              </label>
-            </Button>
-            {fileName && <span className="text-sm text-muted-foreground">{fileName}</span>}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">Image upload is for reference. Please type the problem text above.</p>
-        </FormItem>
+        <FormField
+          control={form.control}
+          name="problemImage"
+          render={({ field: { onChange, onBlur, name, ref, ...restField } }) => ( // Destructure field to use parts with custom handling
+            <FormItem>
+              <FormLabel className="text-lg font-headline">Or upload an image (optional)</FormLabel>
+              <div
+                className={cn(
+                  "mt-2 flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                  isDraggingOver ? "border-primary bg-primary/10" : "border-input hover:border-primary/70"
+                )}
+                onClick={handleDropZoneClick}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                role="button"
+                tabIndex={0}
+                aria-label="Drop image here or click to select an image file"
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none">
+                  <UploadCloud className={cn("w-10 h-10 mb-3", isDraggingOver ? "text-primary" : "text-muted-foreground")} />
+                  <p className={cn("mb-1 text-sm", isDraggingOver ? "text-primary" : "text-muted-foreground")}>
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </p>
+                  <p className={cn("text-xs", isDraggingOver ? "text-primary" : "text-muted-foreground")}>
+                    Image (PNG, JPG, etc.)
+                  </p>
+                  {fileName && (
+                    <span className={cn("mt-2 text-xs px-2 py-1 rounded-md", isDraggingOver ? "text-primary bg-primary/20" : "text-foreground bg-muted")}>
+                      {fileName}
+                    </span>
+                  )}
+                </div>
+                <FormControl>
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    id="problemImageFile"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileInputChange} // Our handler calls form.setValue
+                    onBlur={onBlur} // RHF validation trigger
+                    name={name} // RHF field name
+                    // value is not set for file inputs
+                  />
+                </FormControl>
+              </div>
+              <FormMessage />
+              <p className="text-xs text-muted-foreground mt-1">Image upload is for reference. Please type the problem text above.</p>
+            </FormItem>
+          )}
+        />
         
         <Button type="submit" disabled={isLoading} className="w-full text-lg py-6">
           {isLoading ? (
