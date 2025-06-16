@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -41,7 +42,7 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = handleEnd;
     utterance.onerror = (event) => {
-      console.error('SpeechSynthesisUtterance.onerror', event);
+      console.error('SpeechSynthesisUtterance.onerror - Error:', event.error, 'Event:', event);
       setIsSpeaking(false);
       if (onEndCallbackRef.current) { // also call onEnd on error to proceed
         onEndCallbackRef.current();
