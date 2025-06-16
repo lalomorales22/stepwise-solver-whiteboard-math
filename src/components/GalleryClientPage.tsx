@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -67,8 +68,11 @@ export default function GalleryClientPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-grow">
+              {/* Display first whiteboard step text if available, otherwise first solution step */}
               <p className="text-sm text-muted-foreground line-clamp-3">
-                {problem.solutionSteps[0] || "No solution steps preview available."}
+                {problem.whiteboardStepTexts && problem.whiteboardStepTexts.length > 0 
+                  ? problem.whiteboardStepTexts[0] 
+                  : problem.solutionSteps[0] || "No solution steps preview available."}
               </p>
             </CardContent>
             <CardFooter className="flex justify-between gap-2">

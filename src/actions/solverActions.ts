@@ -39,33 +39,33 @@ export async function solveProblemAction(params: SolveProblemParams): Promise<So
     }
     
     // Prepare steps for presentation and narration, ensuring they are not too verbose for single calls
-    const solutionSteps = rawSolutionSteps.map(step => step.substring(0, 500)); // Truncate steps if too long
+    const solutionSteps = rawSolutionSteps.map(step => step.substring(0, 1000)); // Truncate steps if too long for narration
 
-    // 2. Generate whiteboard presentation
+    // 2. Generate whiteboard presentation (now text-based)
     const presentationResult = await generateWhiteboardPresentation({
-      problem: problemStatement, // Use the analyzed problem statement
+      problem: problemStatement, 
       solutionSteps: solutionSteps,
     });
 
     // 3. Generate voice narration for each step
     const narrationTexts: string[] = [];
-    for (const step of solutionSteps) {
+    for (const step of solutionSteps) { // Narrate based on the original solution steps
       const narrationResult = await generateVoiceNarration({ solutionSteps: step });
       narrationTexts.push(narrationResult.voiceNarration);
     }
     
-    if (presentationResult.whiteboardDataUris.length !== solutionSteps.length || narrationTexts.length !== solutionSteps.length) {
+    if (presentationResult.presentedSteps.length !== solutionSteps.length || narrationTexts.length !== solutionSteps.length) {
         console.warn("Mismatch in generated content lengths", {
             steps: solutionSteps.length,
-            images: presentationResult.whiteboardDataUris.length,
+            presentedSteps: presentationResult.presentedSteps.length,
             narrations: narrationTexts.length
         });
     }
 
     return {
-      problemStatement, // This is now the AI-analyzed/extracted problem
-      solutionSteps,
-      whiteboardImages: presentationResult.whiteboardDataUris,
+      problemStatement, 
+      solutionSteps, // The core, detailed solution steps
+      whiteboardStepTexts: presentationResult.presentedSteps, // Textual steps for the whiteboard
       narrationTexts,
     };
   } catch (error) {

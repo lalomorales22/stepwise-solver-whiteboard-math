@@ -18,9 +18,9 @@ import { loadProblemFromGallery } from '@/lib/problem-storage';
 
 
 export default function SolverPage() {
-  const [problemStatement, setProblemStatement] = useState(''); // This will hold the AI-analyzed problem
+  const [problemStatement, setProblemStatement] = useState(''); 
   const [solutionSteps, setSolutionSteps] = useState<string[]>([]);
-  const [whiteboardImages, setWhiteboardImages] = useState<string[]>([]);
+  const [whiteboardStepTexts, setWhiteboardStepTexts] = useState<string[]>([]); // Changed from whiteboardImages
   const [narrationTexts, setNarrationTexts] = useState<string[]>([]);
   
   const [currentStep, setCurrentStep] = useState(0);
@@ -43,7 +43,7 @@ export default function SolverPage() {
         if (problemData) {
           setProblemStatement(problemData.problemStatement);
           setSolutionSteps(problemData.solutionSteps);
-          setWhiteboardImages(problemData.whiteboardImages);
+          setWhiteboardStepTexts(problemData.whiteboardStepTexts); // Changed
           setNarrationTexts(problemData.narrationTexts);
           setCurrentStep(0);
           setIsPlaying(false);
@@ -59,7 +59,7 @@ export default function SolverPage() {
 
   const resetSolutionState = () => {
     setSolutionSteps([]);
-    setWhiteboardImages([]);
+    setWhiteboardStepTexts([]); // Changed
     setNarrationTexts([]);
     setCurrentStep(0);
     setIsPlaying(false);
@@ -69,19 +69,18 @@ export default function SolverPage() {
   const handleSolve = async (data: { problemText?: string; imageDataUri?: string }) => {
     setIsLoading(true);
     resetSolutionState();
-    // problemStatement will be set from the AI's response
     setProblemStatement(data.problemText && !data.imageDataUri ? data.problemText : 'Analyzing problem...');
 
 
     try {
       const result = await solveProblemAction({ problem: data.problemText, imageDataUri: data.imageDataUri });
       
-      setProblemStatement(result.problemStatement); // Update with AI-analyzed problem
+      setProblemStatement(result.problemStatement); 
       setSolutionSteps(result.solutionSteps);
-      setWhiteboardImages(result.whiteboardImages);
+      setWhiteboardStepTexts(result.whiteboardStepTexts); // Changed
       setNarrationTexts(result.narrationTexts);
 
-      if (result.solutionSteps.length === 0 || result.whiteboardImages.length === 0 || result.narrationTexts.length === 0) {
+      if (result.solutionSteps.length === 0 || result.whiteboardStepTexts.length === 0 || result.narrationTexts.length === 0) {
         toast({
           title: 'Solution Incomplete',
           description: 'The AI could not generate a complete solution. Some parts might be missing. Please try rephrasing or providing a clearer image.',
@@ -96,7 +95,7 @@ export default function SolverPage() {
      
     } catch (error) {
       console.error(error);
-      setProblemStatement(''); // Clear if error
+      setProblemStatement(''); 
       toast({
         title: 'Error Solving Problem',
         description: error instanceof Error ? error.message : 'An unknown error occurred.',
@@ -168,7 +167,7 @@ export default function SolverPage() {
       return;
     }
     try {
-      const solutionData: SolutionData = { problemStatement, solutionSteps, whiteboardImages, narrationTexts };
+      const solutionData: SolutionData = { problemStatement, solutionSteps, whiteboardStepTexts, narrationTexts }; // Changed
       saveProblemToGallery(solutionData);
       toast({ title: 'Problem Saved!', description: 'The current problem and solution have been saved to your gallery.' });
     } catch (error) {
@@ -194,7 +193,7 @@ export default function SolverPage() {
                     <p className="text-muted-foreground">{problemStatement}</p>
                 </div>
             )}
-            <WhiteboardDisplay images={whiteboardImages} currentStep={currentStep} />
+            <WhiteboardDisplay steps={whiteboardStepTexts} currentStep={currentStep} problemStatement={problemStatement} /> {/* Changed */}
             <PlaybackControls
               totalSteps={solutionSteps.length}
               currentStep={currentStep}
@@ -219,4 +218,3 @@ export default function SolverPage() {
     </div>
   );
 }
-

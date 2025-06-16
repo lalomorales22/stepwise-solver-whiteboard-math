@@ -2,7 +2,7 @@ export interface SavedProblem {
   id: string;
   problemStatement: string;
   solutionSteps: string[];
-  whiteboardImages: string[];
+  whiteboardStepTexts: string[]; // Changed from whiteboardImages
   narrationTexts: string[];
   createdAt: string; // ISO date string
 }
@@ -10,6 +10,6 @@ export interface SavedProblem {
 export interface SolutionData {
   problemStatement: string;
   solutionSteps: string[];
-  whiteboardImages: string[];
+  whiteboardStepTexts: string[]; // Changed from whiteboardImages
   narrationTexts: string[];
 }

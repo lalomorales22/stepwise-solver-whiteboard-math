@@ -1,38 +1,38 @@
-
 // src/ai/flows/generate-whiteboard-presentation.ts
 'use server';
 
 /**
- * @fileOverview Generates a whiteboard presentation for a math problem solution.
+ * @fileOverview Prepares solution steps for textual display on a whiteboard.
  *
- * - generateWhiteboardPresentation - A function that generates a whiteboard presentation for a math problem solution.
+ * - generateWhiteboardPresentation - A function that takes solution steps and prepares them for display.
  * - GenerateWhiteboardPresentationInput - The input type for the generateWhiteboardPresentation function.
  * - GenerateWhiteboardPresentationOutput - The return type for the generateWhiteboardPresentation function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '@/ai/genkit'; // ai object might not be needed if no AI call is made
 import {z} from 'genkit';
 
 const GenerateWhiteboardPresentationInputSchema = z.object({
-  problem: z.string().describe('The math problem to solve.'), // This field is not currently used in the image generation loop.
+  problem: z.string().describe('The math problem to solve.'),
   solutionSteps: z.array(z.string()).describe('The step-by-step solution to the problem.'),
 });
 export type GenerateWhiteboardPresentationInput = z.infer<typeof GenerateWhiteboardPresentationInputSchema>;
 
 const GenerateWhiteboardPresentationOutputSchema = z.object({
-  whiteboardDataUris: z.array(z.string()).describe('Array of data URIs for whiteboard images, one per step.'),
+  presentedSteps: z.array(z.string()).describe('Array of textual solution steps formatted for whiteboard display.'),
 });
 export type GenerateWhiteboardPresentationOutput = z.infer<typeof GenerateWhiteboardPresentationOutputSchema>;
 
 export async function generateWhiteboardPresentation(
   input: GenerateWhiteboardPresentationInput
 ): Promise<GenerateWhiteboardPresentationOutput> {
-  return generateWhiteboardPresentationFlow(input);
+  // For now, we simply pass the solution steps through.
+  // In the future, an AI could be used here to rephrase or format steps specifically for a text-based whiteboard.
+  return { presentedSteps: input.solutionSteps };
 }
 
-// The whiteboardStepPrompt was unused and has been removed.
-// The flow directly calls ai.generate for image creation.
-
+// The flow definition can be simplified or removed if no AI call is made.
+// If we keep it for potential future AI formatting:
 const generateWhiteboardPresentationFlow = ai.defineFlow(
   {
     name: 'generateWhiteboardPresentationFlow',
@@ -40,29 +40,9 @@ const generateWhiteboardPresentationFlow = ai.defineFlow(
     outputSchema: GenerateWhiteboardPresentationOutputSchema,
   },
   async input => {
-    const whiteboardDataUris: string[] = [];
-    for (const step of input.solutionSteps) {
-      // Construct a more descriptive prompt for image generation
-      const imagePrompt = `Create a clear, whiteboard-style drawing that visually represents the following math solution step: "${step}"`;
-      
-      const {media} = await ai.generate({
-        // IMPORTANT: ONLY the googleai/gemini-2.0-flash-exp model is able to generate images. You MUST use exactly this model to generate images.
-        model: 'googleai/gemini-2.0-flash-exp',
-        prompt: imagePrompt, // Use the refined, more descriptive prompt
-        config: {
-          responseModalities: ['TEXT', 'IMAGE'], // MUST provide both TEXT and IMAGE, IMAGE only won't work
-        },
-      });
-
-      if (!media || !media.url) {
-        // This handles cases where the API call might succeed but doesn't return a media URL.
-        // The original error (400 Bad Request) suggests the API call itself was failing.
-        console.error(`Image generation API call succeeded but no media URL was returned for step: "${step}" with prompt: "${imagePrompt}"`);
-        throw new Error(`Failed to obtain image URL for step: ${step}. The image model did not return a valid image.`);
-      }
-      whiteboardDataUris.push(media.url);
-    }
-    return {whiteboardDataUris};
+    // Currently, this flow just passes the steps through.
+    // No direct AI call here to avoid image generation costs/limits.
+    // If AI-based text formatting were desired in the future, it would go here.
+    return { presentedSteps: input.solutionSteps };
   }
 );
-

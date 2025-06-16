@@ -1,66 +1,70 @@
+
 'use client';
 
-import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { ImageIcon } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FileText, CheckSquare } from 'lucide-react';
 
 type WhiteboardDisplayProps = {
-  images: string[];
+  steps: string[]; // Changed from images: string[]
   currentStep: number;
+  problemStatement?: string; // Optional: to display the main problem
 };
 
-export function WhiteboardDisplay({ images, currentStep }: WhiteboardDisplayProps) {
-  const [showImage, setShowImage] = useState(true);
-  const [imageToDisplay, setImageToDisplay] = useState<string | null>(null);
+export function WhiteboardDisplay({ steps, currentStep, problemStatement }: WhiteboardDisplayProps) {
+  const [showStep, setShowStep] = useState(true);
+  const [stepToDisplay, setStepToDisplay] = useState<string | null>(null);
 
   useEffect(() => {
-    if (images && images.length > 0 && currentStep >= 0 && currentStep < images.length) {
-      const newImage = images[currentStep];
-      if (newImage !== imageToDisplay) {
-        setShowImage(false); // Start fade out
+    if (steps && steps.length > 0 && currentStep >= 0 && currentStep < steps.length) {
+      const newStepText = steps[currentStep];
+      if (newStepText !== stepToDisplay) {
+        setShowStep(false); // Start fade out
         setTimeout(() => {
-          setImageToDisplay(newImage);
-          setShowImage(true); // Start fade in
-        }, 250); // Half of animation duration for smooth transition
-      } else if (!imageToDisplay) { // Initial load
-        setImageToDisplay(newImage);
-        setShowImage(true);
+          setStepToDisplay(newStepText);
+          setShowStep(true); // Start fade in
+        }, 200); // Shorter duration for text
+      } else if (!stepToDisplay && newStepText) { // Initial load or if stepToDisplay was null
+        setStepToDisplay(newStepText);
+        setShowStep(true);
       }
-    } else {
-      setImageToDisplay(null); // No image if steps/images are empty or currentStep is invalid
+    } else if (steps && steps.length === 0 && currentStep === 0) { // Handle case where steps become empty
+      setStepToDisplay(null);
     }
-  }, [currentStep, images, imageToDisplay]);
+  }, [currentStep, steps, stepToDisplay]);
 
-  if (!images || images.length === 0) {
+  if (!steps || steps.length === 0) {
     return (
-      <Card className="aspect-video w-full flex items-center justify-center bg-muted/30 border-dashed">
-        <CardContent className="text-center text-muted-foreground p-6">
-          <ImageIcon size={48} className="mx-auto mb-4" />
-          <p className="font-headline text-xl">Whiteboard Area</p>
-          <p>Solve a problem to see the visual steps here.</p>
+      <Card className="aspect-video w-full flex flex-col items-center justify-center bg-muted/20 border-2 border-dashed border-muted-foreground/30 rounded-xl shadow-inner">
+        <CardContent className="text-center text-muted-foreground p-6 flex flex-col items-center justify-center">
+          <CheckSquare size={56} className="mx-auto mb-4 text-primary/50" />
+          <p className="font-headline text-xl text-primary/80">AI Whiteboard</p>
+          <p className="mt-1">Solve a problem to see the visual steps here.</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="aspect-video w-full overflow-hidden shadow-xl">
-      <CardContent className="p-0 h-full w-full flex items-center justify-center">
-        {imageToDisplay ? (
-          <div className={`relative w-full h-full transition-opacity duration-500 ease-in-out ${showImage ? 'opacity-100' : 'opacity-0'}`}>
-            <Image
-              src={imageToDisplay}
-              alt={`Solution step ${currentStep + 1}`}
-              layout="fill"
-              objectFit="contain"
-              unoptimized // Since these are data URIs
-              data-ai-hint="math diagram"
-            />
+    <Card className="aspect-video w-full overflow-hidden shadow-xl bg-slate-50 flex flex-col rounded-xl border-muted-foreground/20">
+       <CardHeader className="py-3 px-4 border-b bg-slate-100">
+        <CardTitle className="text-lg font-headline text-primary/90 flex items-center">
+          <FileText size={20} className="mr-2 text-accent" />
+          Step {currentStep + 1} of {steps.length}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6 flex-grow flex items-center justify-center overflow-y-auto">
+        {stepToDisplay ? (
+          <div 
+            className={`w-full h-full transition-opacity duration-300 ease-in-out ${showStep ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <pre className="text-lg md:text-xl font-medium text-gray-800 whitespace-pre-wrap break-words text-center leading-relaxed">
+              {stepToDisplay}
+            </pre>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <ImageIcon size={48} className="mb-2" />
+            <FileText size={48} className="mb-2" />
             <p>Loading step...</p>
           </div>
         )}

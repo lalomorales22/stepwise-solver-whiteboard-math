@@ -6,7 +6,18 @@ const GALLERY_KEY = 'stepwiseSolverGallery';
 export function getProblemsFromGallery(): SavedProblem[] {
   if (typeof window === 'undefined') return [];
   const rawData = localStorage.getItem(GALLERY_KEY);
-  return rawData ? JSON.parse(rawData) : [];
+  if (!rawData) return [];
+  try {
+    const problems = JSON.parse(rawData) as SavedProblem[];
+    // Ensure all problems have the new whiteboardStepTexts field, even if loading old data
+    return problems.map(p => ({
+      ...p,
+      whiteboardStepTexts: p.whiteboardStepTexts || (p as any).whiteboardImages || [], // Handle migration from old whiteboardImages
+    }));
+  } catch (error) {
+    console.error("Error parsing problems from localStorage:", error);
+    return [];
+  }
 }
 
 export function saveProblemToGallery(problemData: SolutionData): SavedProblem {
@@ -16,9 +27,10 @@ export function saveProblemToGallery(problemData: SolutionData): SavedProblem {
     ...problemData,
     id: Date.now().toString(),
     createdAt: new Date().toISOString(),
+    whiteboardStepTexts: problemData.whiteboardStepTexts || [], // Ensure it's always present
   };
-  problems.unshift(newProblem); // Add to the beginning
-  localStorage.setItem(GALLERY_KEY, JSON.stringify(problems.slice(0, 50))); // Limit to 50 problems
+  problems.unshift(newProblem); 
+  localStorage.setItem(GALLERY_KEY, JSON.stringify(problems.slice(0, 50))); 
   return newProblem;
 }
 
@@ -32,5 +44,12 @@ export function deleteProblemFromGallery(id: string): void {
 export function loadProblemFromGallery(id: string): SavedProblem | null {
     if (typeof window === 'undefined') return null;
     const problems = getProblemsFromGallery();
-    return problems.find(p => p.id === id) || null;
+    const problem = problems.find(p => p.id === id) || null;
+    if (problem) {
+      return {
+        ...problem,
+        whiteboardStepTexts: problem.whiteboardStepTexts || (problem as any).whiteboardImages || [], // Handle migration
+      };
+    }
+    return null;
 }
