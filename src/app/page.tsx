@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { solveProblemAction } from '@/actions/solverActions';
-import type { SolutionData, SavedProblem } from '@/types';
+import type { SolutionData } from '@/types';
 import { saveProblemToGallery } from '@/lib/problem-storage';
 import { Loader2, Save } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -17,7 +18,7 @@ import { loadProblemFromGallery } from '@/lib/problem-storage';
 
 
 export default function SolverPage() {
-  const [problemStatement, setProblemStatement] = useState('');
+  const [problemStatement, setProblemStatement] = useState(''); // This will hold the AI-analyzed problem
   const [solutionSteps, setSolutionSteps] = useState<string[]>([]);
   const [whiteboardImages, setWhiteboardImages] = useState<string[]>([]);
   const [narrationTexts, setNarrationTexts] = useState<string[]>([]);
@@ -46,7 +47,6 @@ export default function SolverPage() {
           setNarrationTexts(problemData.narrationTexts);
           setCurrentStep(0);
           setIsPlaying(false);
-          // Remove query param after loading
           router.replace('/', { scroll: false });
         } else {
           toast({ title: "Error", description: "Could not load the specified problem.", variant: "destructive" });
@@ -63,20 +63,28 @@ export default function SolverPage() {
     setNarrationTexts([]);
     setCurrentStep(0);
     setIsPlaying(false);
-    cancel(); // Stop any ongoing speech
+    cancel(); 
   };
 
-  const handleSolve = async (text: string) => {
+  const handleSolve = async (data: { problemText?: string; imageDataUri?: string }) => {
     setIsLoading(true);
     resetSolutionState();
-    setProblemStatement(text);
+    // problemStatement will be set from the AI's response
+    setProblemStatement(data.problemText && !data.imageDataUri ? data.problemText : 'Analyzing problem...');
+
 
     try {
-      const result = await solveProblemAction(text);
+      const result = await solveProblemAction({ problem: data.problemText, imageDataUri: data.imageDataUri });
+      
+      setProblemStatement(result.problemStatement); // Update with AI-analyzed problem
+      setSolutionSteps(result.solutionSteps);
+      setWhiteboardImages(result.whiteboardImages);
+      setNarrationTexts(result.narrationTexts);
+
       if (result.solutionSteps.length === 0 || result.whiteboardImages.length === 0 || result.narrationTexts.length === 0) {
         toast({
           title: 'Solution Incomplete',
-          description: 'The AI could not generate a complete solution. Some parts might be missing. Please try rephrasing your problem.',
+          description: 'The AI could not generate a complete solution. Some parts might be missing. Please try rephrasing or providing a clearer image.',
           variant: 'destructive',
         });
       } else {
@@ -85,12 +93,10 @@ export default function SolverPage() {
           description: 'Your problem has been solved. Press play to view the steps.',
         });
       }
-      setSolutionSteps(result.solutionSteps);
-      setWhiteboardImages(result.whiteboardImages);
-      setNarrationTexts(result.narrationTexts);
      
     } catch (error) {
       console.error(error);
+      setProblemStatement(''); // Clear if error
       toast({
         title: 'Error Solving Problem',
         description: error instanceof Error ? error.message : 'An unknown error occurred.',
@@ -107,15 +113,15 @@ export default function SolverPage() {
         if (isPlaying && stepIndex < solutionSteps.length - 1) {
           setCurrentStep(prev => prev + 1);
         } else {
-          setIsPlaying(false); // Pause at the end of narration or last step
+          setIsPlaying(false); 
         }
       });
-    } else if (isPlaying && stepIndex < solutionSteps.length - 1) { // No audio, but auto-advance if playing
-        setTimeout(() => { // simulate audio duration
+    } else if (isPlaying && stepIndex < solutionSteps.length - 1) { 
+        setTimeout(() => { 
             if(isPlaying) setCurrentStep(prev => prev + 1);
-        }, 1500); // arbitrary delay for visual step if no audio
+        }, 1500); 
     } else if (isPlaying && stepIndex >= solutionSteps.length - 1) {
-        setIsPlaying(false); // Reached end
+        setIsPlaying(false); 
     }
   }, [isSupported, narrationTexts, speak, isPlaying, solutionSteps.length]);
 
@@ -124,7 +130,7 @@ export default function SolverPage() {
     if (isPlaying && solutionSteps.length > 0 && currentStep < solutionSteps.length) {
       playStepAudio(currentStep);
     } else if (!isPlaying) {
-      cancel(); // Stop speech if paused
+      cancel(); 
     }
   }, [isPlaying, currentStep, playStepAudio, solutionSteps, cancel]);
 
@@ -132,7 +138,7 @@ export default function SolverPage() {
   const handlePlayPause = () => {
     if (solutionSteps.length === 0) return;
     setIsPlaying(prev => !prev);
-    if (!isPlaying && currentStep >= solutionSteps.length -1 && solutionSteps.length > 0) { // if at end and play is pressed, restart
+    if (!isPlaying && currentStep >= solutionSteps.length -1 && solutionSteps.length > 0) { 
         setCurrentStep(0);
     }
   };
@@ -140,14 +146,14 @@ export default function SolverPage() {
   const handleNext = () => {
     if (currentStep < solutionSteps.length - 1) {
       setCurrentStep(prev => prev + 1);
-      if (isPlaying) cancel(); // Stop current speech before moving to next
+      if (isPlaying) cancel(); 
     }
   };
 
   const handlePrev = () => {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
-      if (isPlaying) cancel(); // Stop current speech
+      if (isPlaying) cancel(); 
     }
   };
 
@@ -170,7 +176,7 @@ export default function SolverPage() {
     }
   };
   
-  const canSave = solutionSteps.length > 0 && problemStatement.length > 0;
+  const canSave = solutionSteps.length > 0 && problemStatement.length > 0 && problemStatement !== 'Analyzing problem...';
 
 
   return (
@@ -179,9 +185,15 @@ export default function SolverPage() {
       <main className="container mx-auto px-4 py-8 flex-grow w-full max-w-4xl">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-1">
-            <ProblemInputForm onSolve={handleSolve} isLoading={isLoading} />
+            <ProblemInputForm onSolve={handleSolve} isLoading={isLoading} initialProblemText={problemStatement} />
           </div>
           <div className="md:col-span-2 space-y-6">
+            {problemStatement && problemStatement !== 'Analyzing problem...' && (
+                <div className="p-4 bg-card border shadow-sm rounded-lg">
+                    <h2 className="text-lg font-headline text-primary mb-1">Problem:</h2>
+                    <p className="text-muted-foreground">{problemStatement}</p>
+                </div>
+            )}
             <WhiteboardDisplay images={whiteboardImages} currentStep={currentStep} />
             <PlaybackControls
               totalSteps={solutionSteps.length}
@@ -207,3 +219,4 @@ export default function SolverPage() {
     </div>
   );
 }
+

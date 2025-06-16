@@ -1,18 +1,37 @@
+
 'use server';
 
-import { analyzeAndSolve } from '@/ai/flows/analyze-and-solve';
+import { analyzeAndSolve, type AnalyzeAndSolveInput } from '@/ai/flows/analyze-and-solve';
 import { generateWhiteboardPresentation } from '@/ai/flows/generate-whiteboard-presentation';
 import { generateVoiceNarration } from '@/ai/flows/generate-voice-narration';
 import type { SolutionData } from '@/types';
+
+interface SolveProblemParams {
+  problem?: string;
+  imageDataUri?: string;
+}
 
 interface SolveProblemResult extends SolutionData {
   // any additional fields if necessary
 }
 
-export async function solveProblemAction(problemStatement: string): Promise<SolveProblemResult> {
+export async function solveProblemAction(params: SolveProblemParams): Promise<SolveProblemResult> {
   try {
-    // 1. Analyze and get solution steps
-    const analysisResult = await analyzeAndSolve({ problem: problemStatement });
+    if (!params.problem && !params.imageDataUri) {
+      throw new Error("Either a problem statement or an image must be provided.");
+    }
+
+    // 1. Analyze and get solution steps (and the analyzed problem statement)
+    const analysisInput: AnalyzeAndSolveInput = {};
+    if (params.problem) analysisInput.problem = params.problem;
+    if (params.imageDataUri) analysisInput.photoDataUri = params.imageDataUri;
+    
+    const analysisResult = await analyzeAndSolve(analysisInput);
+    
+    if (!analysisResult.analyzedProblem || !analysisResult.solution) {
+        throw new Error("AI could not analyze the problem or generate a solution.");
+    }
+    const problemStatement = analysisResult.analyzedProblem;
     const rawSolutionSteps = analysisResult.solution.split('\n').filter(step => step.trim() !== '');
 
     if (rawSolutionSteps.length === 0) {
@@ -20,11 +39,11 @@ export async function solveProblemAction(problemStatement: string): Promise<Solv
     }
     
     // Prepare steps for presentation and narration, ensuring they are not too verbose for single calls
-    const solutionSteps = rawSolutionSteps.map(step => step.substring(0, 500)); // Truncate steps if too long for individual narration/whiteboard generation
+    const solutionSteps = rawSolutionSteps.map(step => step.substring(0, 500)); // Truncate steps if too long
 
     // 2. Generate whiteboard presentation
     const presentationResult = await generateWhiteboardPresentation({
-      problem: problemStatement,
+      problem: problemStatement, // Use the analyzed problem statement
       solutionSteps: solutionSteps,
     });
 
@@ -41,12 +60,10 @@ export async function solveProblemAction(problemStatement: string): Promise<Solv
             images: presentationResult.whiteboardDataUris.length,
             narrations: narrationTexts.length
         });
-        // Pad arrays if necessary, or handle this discrepancy in the client
     }
 
-
     return {
-      problemStatement,
+      problemStatement, // This is now the AI-analyzed/extracted problem
       solutionSteps,
       whiteboardImages: presentationResult.whiteboardDataUris,
       narrationTexts,
@@ -54,8 +71,6 @@ export async function solveProblemAction(problemStatement: string): Promise<Solv
   } catch (error) {
     console.error('Error in solveProblemAction:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while solving the problem.';
-    // It's better to throw the error and let the client handle it, or return an error object
-    // For now, re-throwing allows the client to catch it via try/catch on the action call
     throw new Error(`Failed to solve problem: ${errorMessage}`);
   }
 }

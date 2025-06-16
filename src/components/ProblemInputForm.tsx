@@ -13,29 +13,72 @@ import { Send, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
-  problemText: z.string().min(5, { message: 'Problem description must be at least 5 characters.' }),
-  problemImage: z.any().optional(), // For file input (FileList or File[])
+  problemText: z.string().optional(),
+  problemImage: z.custom<FileList | undefined>().optional(),
+}).superRefine((data, ctx) => {
+  const hasImage = data.problemImage && data.problemImage.length > 0;
+  const hasText = data.problemText && data.problemText.trim().length > 0;
+
+  if (!hasImage && !hasText) {
+    ctx.addIssue({
+      path: ["problemText"], // Or a general form error
+      message: "Please enter the problem text or upload an image of the problem.",
+    });
+  } else if (!hasImage && data.problemText && data.problemText.trim().length < 5) {
+    ctx.addIssue({
+      path: ["problemText"],
+      message: "Problem description must be at least 5 characters if no image is provided.",
+    });
+  }
 });
 
 type ProblemInputFormProps = {
-  onSolve: (problemText: string) => void;
+  onSolve: (data: { problemText?: string; imageDataUri?: string }) => void;
   isLoading: boolean;
+  initialProblemText?: string; // To display AI analyzed problem if loaded from gallery
 };
 
-export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) {
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+export function ProblemInputForm({ onSolve, isLoading, initialProblemText }: ProblemInputFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      problemText: '',
+      problemText: initialProblemText || '',
+      problemImage: undefined,
     },
   });
+
+  React.useEffect(() => {
+    if (initialProblemText !== undefined) {
+        form.setValue('problemText', initialProblemText);
+    }
+  }, [initialProblemText, form]);
+
 
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    onSolve(values.problemText);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    let imageDataUri: string | undefined = undefined;
+    if (values.problemImage && values.problemImage.length > 0) {
+      try {
+        imageDataUri = await fileToDataUri(values.problemImage[0]);
+      } catch (error) {
+        console.error("Error converting file to data URI:", error);
+        form.setError("problemImage", { type: "manual", message: "Could not process image file." });
+        return;
+      }
+    }
+    onSolve({ problemText: values.problemText, imageDataUri });
   }
 
   const processFiles = (files: FileList | null) => {
@@ -43,11 +86,15 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
       const file = files[0];
       if (file.type.startsWith('image/')) {
         setFileName(file.name);
-        form.setValue('problemImage', files); // Store the FileList for RHF
+        form.setValue('problemImage', files); 
+        form.clearErrors("problemImage");
+        if (form.getValues("problemText")?.trim() === "") { // If text is empty, clear its potential error
+            form.clearErrors("problemText");
+        }
       } else {
         setFileName('Invalid file type. Please upload an image.');
-        form.setValue('problemImage', undefined); // Clear if invalid
-        // Consider using toast here for better UX if available/passed
+        form.setValue('problemImage', undefined); 
+        form.setError("problemImage", { type: "manual", message: "Invalid file type. Please upload an image."})
       }
     } else {
       setFileName(null);
@@ -73,7 +120,7 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    event.stopPropagation(); // Necessary to allow drop
+    event.stopPropagation(); 
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -86,6 +133,10 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
   const handleDropZoneClick = () => {
     fileInputRef.current?.click();
   };
+  
+  const problemTextValue = form.watch("problemText");
+  const problemImageValue = form.watch("problemImage");
+
 
   return (
     <Form {...form}>
@@ -98,9 +149,10 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
               <FormLabel className="text-lg font-headline">Enter your math problem</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="e.g., Solve for x: 2x + 5 = 15"
+                  placeholder="e.g., Solve for x: 2x + 5 = 15 or upload an image below"
                   className="min-h-[120px] resize-none text-base"
                   {...field}
+                  value={field.value ?? ''} 
                   aria-label="Math problem input"
                 />
               </FormControl>
@@ -112,13 +164,14 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
         <FormField
           control={form.control}
           name="problemImage"
-          render={({ field: { onChange, onBlur, name, ref, ...restField } }) => ( // Destructure field to use parts with custom handling
+          render={({ fieldState }) => ( 
             <FormItem>
-              <FormLabel className="text-lg font-headline">Or upload an image (optional)</FormLabel>
+              <FormLabel className="text-lg font-headline">Or upload an image</FormLabel>
               <div
                 className={cn(
                   "mt-2 flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-                  isDraggingOver ? "border-primary bg-primary/10" : "border-input hover:border-primary/70"
+                  isDraggingOver ? "border-primary bg-primary/10" : "border-input hover:border-primary/70",
+                  fieldState.error ? "border-destructive" : ""
                 )}
                 onClick={handleDropZoneClick}
                 onDragEnter={handleDragEnter}
@@ -138,7 +191,7 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
                     Image (PNG, JPG, etc.)
                   </p>
                   {fileName && (
-                    <span className={cn("mt-2 text-xs px-2 py-1 rounded-md", isDraggingOver ? "text-primary bg-primary/20" : "text-foreground bg-muted")}>
+                    <span className={cn("mt-2 text-xs px-2 py-1 rounded-md", isDraggingOver ? "text-primary bg-primary/20" : "text-foreground bg-muted", fieldState.error && fileName?.startsWith("Invalid") ? "bg-destructive text-destructive-foreground" : "")}>
                       {fileName}
                     </span>
                   )}
@@ -150,20 +203,22 @@ export function ProblemInputForm({ onSolve, isLoading }: ProblemInputFormProps) 
                     id="problemImageFile"
                     className="hidden"
                     accept="image/*"
-                    onChange={handleFileInputChange} // Our handler calls form.setValue
-                    onBlur={onBlur} // RHF validation trigger
-                    name={name} // RHF field name
-                    // value is not set for file inputs
+                    onChange={handleFileInputChange}
+                    onBlur={form.control._fields.problemImage?.ref?.onBlur} 
+                    name={form.control._fields.problemImage?.ref?.name}
                   />
                 </FormControl>
               </div>
-              <FormMessage />
-              <p className="text-xs text-muted-foreground mt-1">Image upload is for reference. Please type the problem text above.</p>
+              <FormMessage>{fieldState.error?.message}</FormMessage>
             </FormItem>
           )}
         />
         
-        <Button type="submit" disabled={isLoading} className="w-full text-lg py-6">
+        <Button 
+            type="submit" 
+            disabled={isLoading || (!problemTextValue?.trim() && (!problemImageValue || problemImageValue.length === 0))} 
+            className="w-full text-lg py-6"
+        >
           {isLoading ? (
             <>
               <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
