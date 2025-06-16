@@ -1,3 +1,4 @@
+
 // src/ai/flows/generate-whiteboard-presentation.ts
 'use server';
 
@@ -13,7 +14,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateWhiteboardPresentationInputSchema = z.object({
-  problem: z.string().describe('The math problem to solve.'),
+  problem: z.string().describe('The math problem to solve.'), // This field is not currently used in the image generation loop.
   solutionSteps: z.array(z.string()).describe('The step-by-step solution to the problem.'),
 });
 export type GenerateWhiteboardPresentationInput = z.infer<typeof GenerateWhiteboardPresentationInputSchema>;
@@ -29,16 +30,8 @@ export async function generateWhiteboardPresentation(
   return generateWhiteboardPresentationFlow(input);
 }
 
-const whiteboardStepPrompt = ai.definePrompt({
-  name: 'whiteboardStepPrompt',
-  input: {schema: z.object({step: z.string()})},
-  output: {schema: z.object({whiteboardDataUri: z.string()})},
-  prompt: `Create a whiteboard drawing that visually represents the following step in solving a math problem. The image should focus on clarity and be suitable for a whiteboard animation. Return the image as a data URI.
-
-Step: {{{step}}}
-
-Data URI: {{media url=whiteboardDataUri}}`,
-});
+// The whiteboardStepPrompt was unused and has been removed.
+// The flow directly calls ai.generate for image creation.
 
 const generateWhiteboardPresentationFlow = ai.defineFlow(
   {
@@ -49,18 +42,27 @@ const generateWhiteboardPresentationFlow = ai.defineFlow(
   async input => {
     const whiteboardDataUris: string[] = [];
     for (const step of input.solutionSteps) {
+      // Construct a more descriptive prompt for image generation
+      const imagePrompt = `Create a clear, whiteboard-style drawing that visually represents the following math solution step: "${step}"`;
+      
       const {media} = await ai.generate({
         // IMPORTANT: ONLY the googleai/gemini-2.0-flash-exp model is able to generate images. You MUST use exactly this model to generate images.
         model: 'googleai/gemini-2.0-flash-exp',
-
-        prompt: step,
-
+        prompt: imagePrompt, // Use the refined, more descriptive prompt
         config: {
           responseModalities: ['TEXT', 'IMAGE'], // MUST provide both TEXT and IMAGE, IMAGE only won't work
         },
       });
-      whiteboardDataUris.push(media.url!);
+
+      if (!media || !media.url) {
+        // This handles cases where the API call might succeed but doesn't return a media URL.
+        // The original error (400 Bad Request) suggests the API call itself was failing.
+        console.error(`Image generation API call succeeded but no media URL was returned for step: "${step}" with prompt: "${imagePrompt}"`);
+        throw new Error(`Failed to obtain image URL for step: ${step}. The image model did not return a valid image.`);
+      }
+      whiteboardDataUris.push(media.url);
     }
     return {whiteboardDataUris};
   }
 );
+
