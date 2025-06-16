@@ -110,13 +110,12 @@ export default function SolverPage() {
   const playStepAudio = useCallback((stepIndex: number) => {
     if (!narrationTexts[stepIndex] && narrationTexts.length > 0) {
       console.warn(`No narration text for step ${stepIndex}.`);
-      // If playing and not the last step, advance to next step after a short delay.
       if (isPlaying && stepIndex < narrationTexts.length - 1) {
         setTimeout(() => {
           if (isPlaying) setCurrentStep(prev => prev + 1);
         }, 500); 
       } else {
-        setIsPlaying(false); // If it's the last step or not playing, stop.
+        setIsPlaying(false); 
       }
       return;
     }
@@ -124,14 +123,14 @@ export default function SolverPage() {
     if (isSupported && narrationTexts[stepIndex]) {
       speak(
         narrationTexts[stepIndex],
-        () => { // onSuccess
+        () => { 
           if (isPlaying && stepIndex < narrationTexts.length - 1) {
             setCurrentStep(prev => prev + 1);
           } else {
             setIsPlaying(false); 
           }
         },
-        (errorEvent) => { // onErrorOccurred
+        (errorEvent) => { 
           console.error(`Speech synthesis error on step ${stepIndex}:`, errorEvent.error, errorEvent);
           setIsPlaying(false); 
           toast({
@@ -163,7 +162,6 @@ export default function SolverPage() {
   const handlePlayPause = () => {
     if (narrationTexts.length === 0) return;
 
-    // If speech is active and user intends to pause
     if (isSpeaking && isPlaying) {
         cancel();
         setIsPlaying(false);
@@ -220,34 +218,30 @@ export default function SolverPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8 flex-grow w-full max-w-4xl">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="md:col-span-1">
-            <ProblemInputForm onSolve={handleSolve} isLoading={isLoading} initialProblemText={problemStatement} />
-          </div>
-          <div className="md:col-span-2 space-y-6">
-            {problemStatement && problemStatement !== 'Analyzing problem...' && (
-                <div className="p-4 bg-card border shadow-sm rounded-lg">
-                    <h2 className="text-lg font-headline text-primary mb-1">Problem:</h2>
-                    <p className="text-muted-foreground">{problemStatement}</p>
-                </div>
-            )}
-            <WhiteboardDisplay steps={whiteboardStepTexts} currentStep={currentStep} problemStatement={problemStatement} /> 
-            <PlaybackControls
-              totalSteps={narrationTexts.length}
-              currentStep={currentStep}
-              isPlaying={isPlaying}
-              onPlayPause={handlePlayPause}
-              onNext={handleNext}
-              onPrev={handlePrev}
-              onSeek={handleSeek}
-              isInteractive={narrationTexts.length > 0}
-            />
-            {canSave && (
-                <Button onClick={handleSaveProblem} variant="secondary" className="w-full">
-                    <Save size={18} className="mr-2" /> Save to Gallery
-                </Button>
-            )}
-          </div>
+        <div className="flex flex-col gap-6">
+          {problemStatement && problemStatement !== 'Analyzing problem...' && (
+              <div className="p-4 bg-card border shadow-sm rounded-lg">
+                  <h2 className="text-lg font-headline text-primary mb-1">Problem:</h2>
+                  <p className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: problemStatement }}></p>
+              </div>
+          )}
+          <WhiteboardDisplay steps={whiteboardStepTexts} currentStep={currentStep} problemStatement={problemStatement} /> 
+          <PlaybackControls
+            totalSteps={narrationTexts.length}
+            currentStep={currentStep}
+            isPlaying={isPlaying}
+            onPlayPause={handlePlayPause}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onSeek={handleSeek}
+            isInteractive={narrationTexts.length > 0}
+          />
+          <ProblemInputForm onSolve={handleSolve} isLoading={isLoading} initialProblemText={problemStatement} />
+          {canSave && (
+              <Button onClick={handleSaveProblem} variant="secondary" className="w-full">
+                  <Save size={18} className="mr-2" /> Save to Gallery
+              </Button>
+          )}
         </div>
       </main>
       <footer className="text-center py-4 border-t text-sm text-muted-foreground">
@@ -256,4 +250,3 @@ export default function SolverPage() {
     </div>
   );
 }
-

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -21,7 +20,7 @@ const formSchema = z.object({
 
   if (!hasImage && !hasText) {
     ctx.addIssue({
-      path: ["problemText"], // Or a general form error
+      path: ["problemText"], 
       message: "Please enter the problem text or upload an image of the problem.",
     });
   } else if (!hasImage && data.problemText && data.problemText.trim().length < 5) {
@@ -35,7 +34,7 @@ const formSchema = z.object({
 type ProblemInputFormProps = {
   onSolve: (data: { problemText?: string; imageDataUri?: string }) => void;
   isLoading: boolean;
-  initialProblemText?: string; // To display AI analyzed problem if loaded from gallery
+  initialProblemText?: string; 
 };
 
 const fileToDataUri = (file: File): Promise<string> => {
@@ -57,8 +56,10 @@ export function ProblemInputForm({ onSolve, isLoading, initialProblemText }: Pro
   });
 
   React.useEffect(() => {
-    if (initialProblemText !== undefined) {
+    if (initialProblemText !== undefined && initialProblemText !== 'Analyzing problem...') {
         form.setValue('problemText', initialProblemText);
+    } else if (initialProblemText === 'Analyzing problem...') {
+        form.setValue('problemText', ''); // Clear if it was just 'Analyzing problem...'
     }
   }, [initialProblemText, form]);
 
@@ -88,7 +89,7 @@ export function ProblemInputForm({ onSolve, isLoading, initialProblemText }: Pro
         setFileName(file.name);
         form.setValue('problemImage', files); 
         form.clearErrors("problemImage");
-        if (form.getValues("problemText")?.trim() === "") { // If text is empty, clear its potential error
+        if (form.getValues("problemText")?.trim() === "") { 
             form.clearErrors("problemText");
         }
       } else {
@@ -141,83 +142,87 @@ export function ProblemInputForm({ onSolve, isLoading, initialProblemText }: Pro
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-4 md:p-6 bg-card shadow-lg rounded-lg border">
-        <FormField
-          control={form.control}
-          name="problemText"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-lg font-headline">Enter your math problem</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="e.g., Solve for x: 2x + 5 = 15 or upload an image below"
-                  className="min-h-[120px] resize-none text-base"
-                  {...field}
-                  value={field.value ?? ''} 
-                  aria-label="Math problem input"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="flex flex-col md:flex-row md:gap-6 space-y-6 md:space-y-0">
+          <div className="flex-1">
+            <FormField
+              control={form.control}
+              name="problemText"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-lg font-headline">Enter math problem</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="e.g., Solve for x: 2x + 5 = 15"
+                      className="min-h-[160px] resize-none text-base"
+                      {...field}
+                      value={field.value ?? ''} 
+                      aria-label="Math problem input"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-        <FormField
-          control={form.control}
-          name="problemImage"
-          render={({ fieldState }) => ( 
-            <FormItem>
-              <FormLabel className="text-lg font-headline">Or upload an image</FormLabel>
-              <div
-                className={cn(
-                  "mt-2 flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-                  isDraggingOver ? "border-primary bg-primary/10" : "border-input hover:border-primary/70",
-                  fieldState.error ? "border-destructive" : ""
-                )}
-                onClick={handleDropZoneClick}
-                onDragEnter={handleDragEnter}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                role="button"
-                tabIndex={0}
-                aria-label="Drop image here or click to select an image file"
-              >
-                <div className="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none">
-                  <UploadCloud className={cn("w-10 h-10 mb-3", isDraggingOver ? "text-primary" : "text-muted-foreground")} />
-                  <p className={cn("mb-1 text-sm", isDraggingOver ? "text-primary" : "text-muted-foreground")}>
-                    <span className="font-semibold">Click to upload</span> or drag and drop
-                  </p>
-                  <p className={cn("text-xs", isDraggingOver ? "text-primary" : "text-muted-foreground")}>
-                    Image (PNG, JPG, etc.)
-                  </p>
-                  {fileName && (
-                    <span className={cn("mt-2 text-xs px-2 py-1 rounded-md", isDraggingOver ? "text-primary bg-primary/20" : "text-foreground bg-muted", fieldState.error && fileName?.startsWith("Invalid") ? "bg-destructive text-destructive-foreground" : "")}>
-                      {fileName}
-                    </span>
-                  )}
-                </div>
-                <FormControl>
-                  <Input
-                    ref={fileInputRef}
-                    type="file"
-                    id="problemImageFile"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleFileInputChange}
-                    onBlur={form.control._fields.problemImage?.ref?.onBlur} 
-                    name={form.control._fields.problemImage?.ref?.name}
-                  />
-                </FormControl>
-              </div>
-              <FormMessage>{fieldState.error?.message}</FormMessage>
-            </FormItem>
-          )}
-        />
+          <div className="flex-1">
+            <FormField
+              control={form.control}
+              name="problemImage"
+              render={({ fieldState }) => ( 
+                <FormItem>
+                  <FormLabel className="text-lg font-headline">Or upload image</FormLabel>
+                  <div
+                    className={cn(
+                      "mt-2 flex flex-col items-center justify-center w-full h-[160px] border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                      isDraggingOver ? "border-primary bg-primary/10" : "border-input hover:border-primary/70",
+                      fieldState.error ? "border-destructive" : ""
+                    )}
+                    onClick={handleDropZoneClick}
+                    onDragEnter={handleDragEnter}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Drop image here or click to select an image file"
+                  >
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none text-center">
+                      <UploadCloud className={cn("w-8 h-8 mb-2", isDraggingOver ? "text-primary" : "text-muted-foreground")} />
+                      <p className={cn("text-xs", isDraggingOver ? "text-primary" : "text-muted-foreground")}>
+                        <span className="font-semibold">Click to upload</span> or drag & drop
+                      </p>
+                      {fileName && (
+                        <span className={cn("mt-1 text-xs px-1.5 py-0.5 rounded-md truncate max-w-[90%]", isDraggingOver ? "text-primary bg-primary/20" : "text-foreground bg-muted", fieldState.error && fileName?.startsWith("Invalid") ? "bg-destructive text-destructive-foreground" : "")}>
+                          {fileName}
+                        </span>
+                      )}
+                       {!fileName && <p className={cn("text-xs mt-1", isDraggingOver ? "text-primary" : "text-muted-foreground")}>(PNG, JPG, etc.)</p>}
+                    </div>
+                    <FormControl>
+                      <Input
+                        ref={fileInputRef}
+                        type="file"
+                        id="problemImageFile"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileInputChange}
+                        onBlur={form.control._fields.problemImage?.ref?.onBlur} 
+                        name={form.control._fields.problemImage?.ref?.name}
+                      />
+                    </FormControl>
+                  </div>
+                  <FormMessage>{fieldState.error?.message}</FormMessage>
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
         
         <Button 
             type="submit" 
             disabled={isLoading || (!problemTextValue?.trim() && (!problemImageValue || problemImageValue.length === 0))} 
-            className="w-full text-lg py-6"
+            className="w-full text-lg py-3 md:py-4"
         >
           {isLoading ? (
             <>

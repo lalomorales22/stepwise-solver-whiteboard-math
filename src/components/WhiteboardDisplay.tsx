@@ -28,7 +28,7 @@ export function WhiteboardDisplay({ steps, currentStep, problemStatement }: Whit
         setStepToDisplay(newStepText);
         setShowStep(true);
       }
-    } else if (steps && steps.length === 0 && currentStep === 0) { 
+    } else if ((!steps || steps.length === 0) && currentStep === 0) { // Reset if no steps
       setStepToDisplay(null);
     }
   }, [currentStep, steps, stepToDisplay]);
