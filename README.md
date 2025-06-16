@@ -1,9 +1,8 @@
 
 # StepWise Solver
+![Screenshot 2025-06-16 at 2 36 36 PM](https://github.com/user-attachments/assets/95d3ddba-b3ab-4fd2-9b04-6d5a39b1c0be)
 
 StepWise Solver is an interactive web application designed to help users understand and solve math problems. It provides step-by-step solutions, visual explanations on a digital whiteboard, and synchronized voice narration for an enhanced learning experience. Users can input problems via text or by uploading an image.
-
-**GitHub Repository:** [lalomorales22/stepwise-solver-whiteboard-math](https://github.com/lalomorales22/stepwise-solver-whiteboard-math)
 
 ## Technologies Used
 
