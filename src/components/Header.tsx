@@ -9,11 +9,9 @@ export function Header() {
           StepWise Solver
         </Link>
         <nav>
-          <Link href="/gallery" legacyBehavior>
-            <a className="flex items-center gap-2 text-primary hover:text-accent transition-colors font-medium">
-              <NotebookText size={20} />
-              Problem Gallery
-            </a>
+          <Link href="/gallery" className="flex items-center gap-2 text-primary hover:text-accent transition-colors font-medium">
+            <NotebookText size={20} />
+            Problem Gallery
           </Link>
         </nav>
       </div>
