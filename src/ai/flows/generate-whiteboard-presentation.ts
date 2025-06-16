@@ -9,7 +9,7 @@
  * - GenerateWhiteboardPresentationOutput - The return type for the generateWhiteboardPresentation function.
  */
 
-import {ai} from '@/ai/genkit'; // ai object might not be needed if no AI call is made
+// ai object from genkit is no longer needed here as no AI call or flow definition is made in this file.
 import {z} from 'genkit';
 
 const GenerateWhiteboardPresentationInputSchema = z.object({
@@ -26,23 +26,12 @@ export type GenerateWhiteboardPresentationOutput = z.infer<typeof GenerateWhiteb
 export async function generateWhiteboardPresentation(
   input: GenerateWhiteboardPresentationInput
 ): Promise<GenerateWhiteboardPresentationOutput> {
-  // For now, we simply pass the solution steps through.
-  // In the future, an AI could be used here to rephrase or format steps specifically for a text-based whiteboard.
+  // This function simply passes the solution steps through for textual display.
+  // No AI call is made here.
   return { presentedSteps: input.solutionSteps };
 }
 
-// The flow definition can be simplified or removed if no AI call is made.
-// If we keep it for potential future AI formatting:
-const generateWhiteboardPresentationFlow = ai.defineFlow(
-  {
-    name: 'generateWhiteboardPresentationFlow',
-    inputSchema: GenerateWhiteboardPresentationInputSchema,
-    outputSchema: GenerateWhiteboardPresentationOutputSchema,
-  },
-  async input => {
-    // Currently, this flow just passes the steps through.
-    // No direct AI call here to avoid image generation costs/limits.
-    // If AI-based text formatting were desired in the future, it would go here.
-    return { presentedSteps: input.solutionSteps };
-  }
-);
+// The ai.defineFlow block has been completely removed from this file
+// to ensure no AI model is invoked or flow registered by this module.
+// The exported async function generateWhiteboardPresentation is called directly
+// from solverActions.ts and performs no AI operations.
