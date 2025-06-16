@@ -49,7 +49,7 @@ Create a `.env` file in the root of your project and add the following environme
 
 ```env
 GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY_HERE
-ELEVENLABS_API_KEY=sk_fb28dc6ab5238d2953e61590263417fa7a2b64d84519fb9a
+ELEVENLABS_API_KEY=ENTER_ELEVEN_LABS_API
 ```
 
 -   `GOOGLE_API_KEY`: Required for using Google's Generative AI models (e.g., Gemini) for problem analysis, solution generation, and narration script generation. You can obtain this key from your Google Cloud Console by enabling the "Generative Language API" or "Vertex AI API".
