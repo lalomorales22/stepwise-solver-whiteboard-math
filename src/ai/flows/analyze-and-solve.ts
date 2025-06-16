@@ -39,7 +39,7 @@ const AnalyzeAndSolveOutputSchema = z.object({
     .describe('The math problem that was identified and solved, either from the text input or extracted from the image.'),
   solution: z
     .string()
-    .describe('A step-by-step solution to the math problem, explained in a way that is easy to understand.'),
+    .describe('A step-by-step solution to the math problem, explained in a way that is easy to understand. Use HTML <sup> tags for exponents (e.g., x<sup>2</sup>). For fractions, use a/b format.'),
 });
 export type AnalyzeAndSolveOutput = z.infer<typeof AnalyzeAndSolveOutputSchema>;
 
@@ -66,6 +66,11 @@ First, clearly state the math problem you identified from the image in the 'anal
 {{/if}}
 
 Then, provide a detailed, step-by-step solution to the identified math problem in the 'solution' field.
+Format the solution for clear display:
+- Use HTML &lt;sup&gt; tags for exponents (e.g., x&lt;sup&gt;2&lt;/sup&gt; for x squared).
+- For fractions, use the format a/b (e.g., 1/2 for one half).
+- Ensure each step is on a new line.
+
 If the input was text, the 'analyzedProblem' field should contain that original problem text.
 If the input was an image, the 'analyzedProblem' field must contain the problem statement you extracted from the image.
 `,

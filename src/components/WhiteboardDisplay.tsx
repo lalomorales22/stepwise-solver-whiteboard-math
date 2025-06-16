@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, CheckSquare } from 'lucide-react';
 
 type WhiteboardDisplayProps = {
-  steps: string[]; // Changed from images: string[]
+  steps: string[]; 
   currentStep: number;
-  problemStatement?: string; // Optional: to display the main problem
+  problemStatement?: string; 
 };
 
 export function WhiteboardDisplay({ steps, currentStep, problemStatement }: WhiteboardDisplayProps) {
@@ -19,16 +19,16 @@ export function WhiteboardDisplay({ steps, currentStep, problemStatement }: Whit
     if (steps && steps.length > 0 && currentStep >= 0 && currentStep < steps.length) {
       const newStepText = steps[currentStep];
       if (newStepText !== stepToDisplay) {
-        setShowStep(false); // Start fade out
+        setShowStep(false); 
         setTimeout(() => {
           setStepToDisplay(newStepText);
-          setShowStep(true); // Start fade in
-        }, 200); // Shorter duration for text
-      } else if (!stepToDisplay && newStepText) { // Initial load or if stepToDisplay was null
+          setShowStep(true); 
+        }, 200); 
+      } else if (!stepToDisplay && newStepText) { 
         setStepToDisplay(newStepText);
         setShowStep(true);
       }
-    } else if (steps && steps.length === 0 && currentStep === 0) { // Handle case where steps become empty
+    } else if (steps && steps.length === 0 && currentStep === 0) { 
       setStepToDisplay(null);
     }
   }, [currentStep, steps, stepToDisplay]);
@@ -58,9 +58,10 @@ export function WhiteboardDisplay({ steps, currentStep, problemStatement }: Whit
           <div 
             className={`w-full h-full transition-opacity duration-300 ease-in-out ${showStep ? 'opacity-100' : 'opacity-0'}`}
           >
-            <pre className="text-lg md:text-xl font-medium text-gray-800 whitespace-pre-wrap break-words text-center leading-relaxed">
-              {stepToDisplay}
-            </pre>
+            <div 
+              className="text-lg md:text-xl font-medium text-gray-800 whitespace-pre-wrap break-words text-center leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: stepToDisplay }}
+            />
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">

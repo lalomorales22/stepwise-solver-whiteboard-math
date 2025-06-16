@@ -1,3 +1,4 @@
+
 // src/ai/flows/generate-voice-narration.ts
 'use server';
 
@@ -13,9 +14,9 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateVoiceNarrationInputSchema = z.object({
-  solutionSteps: z
+  technicalStep: z // Renamed from solutionSteps
     .string()
-    .describe('The step-by-step solution of the math problem.'),
+    .describe('A single technical step of a math solution, which may include mathematical notation like x^2 or 2/3.'),
 });
 
 export type GenerateVoiceNarrationInput = z.infer<
@@ -25,7 +26,7 @@ export type GenerateVoiceNarrationInput = z.infer<
 const GenerateVoiceNarrationOutputSchema = z.object({
   voiceNarration: z
     .string()
-    .describe('The voice narration explaining the solution steps.'),
+    .describe('The voice narration explaining the solution step, with mathematical symbols expanded into spoken words (e.g., "x squared", "two thirds").'),
 });
 
 export type GenerateVoiceNarrationOutput = z.infer<
@@ -42,10 +43,18 @@ const prompt = ai.definePrompt({
   name: 'generateVoiceNarrationPrompt',
   input: {schema: GenerateVoiceNarrationInputSchema},
   output: {schema: GenerateVoiceNarrationOutputSchema},
-  prompt: `You are a math tutor who explains math problems in voice narration.
+  prompt: `You are a math tutor creating a voice narration script.
+Given the following technical math solution step:
+Technical Step: {{{technicalStep}}}
 
-  Solution Steps: {{{solutionSteps}}}
-  Create voice narration to explain the solution steps.`, // Changed the prompt to follow the Zeus model.
+Rephrase this step into clear, natural-sounding language suitable for voice narration.
+Expand all mathematical symbols and notations into words. For example:
+- "x^2" or "x<sup>2</sup>" should become "x squared" or "x to the power of 2".
+- "2/3" should become "two-thirds" or "two divided by three".
+- "+" should become "plus".
+- "=" should become "equals".
+- Variables like 'x' or 'y' should be spoken as "ex" or "why".
+Provide only the narrated text.`,
 });
 
 const generateVoiceNarrationFlow = ai.defineFlow(

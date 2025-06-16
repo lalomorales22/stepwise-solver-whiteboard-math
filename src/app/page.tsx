@@ -12,16 +12,16 @@ import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { solveProblemAction } from '@/actions/solverActions';
 import type { SolutionData } from '@/types';
 import { saveProblemToGallery } from '@/lib/problem-storage';
-import { Loader2, Save } from 'lucide-react';
+import { Save } from 'lucide-react'; // Removed Loader2 as it's not directly used here
 import { useSearchParams, useRouter } from 'next/navigation';
 import { loadProblemFromGallery } from '@/lib/problem-storage';
 
 
 export default function SolverPage() {
   const [problemStatement, setProblemStatement] = useState(''); 
-  const [solutionSteps, setSolutionSteps] = useState<string[]>([]);
-  const [whiteboardStepTexts, setWhiteboardStepTexts] = useState<string[]>([]); // Changed from whiteboardImages
-  const [narrationTexts, setNarrationTexts] = useState<string[]>([]);
+  const [solutionSteps, setSolutionSteps] = useState<string[]>([]); // These are for display (e.g. with HTML)
+  const [whiteboardStepTexts, setWhiteboardStepTexts] = useState<string[]>([]);
+  const [narrationTexts, setNarrationTexts] = useState<string[]>([]); // Speakable texts
   
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -43,11 +43,14 @@ export default function SolverPage() {
         if (problemData) {
           setProblemStatement(problemData.problemStatement);
           setSolutionSteps(problemData.solutionSteps);
-          setWhiteboardStepTexts(problemData.whiteboardStepTexts); // Changed
+          setWhiteboardStepTexts(problemData.whiteboardStepTexts); 
           setNarrationTexts(problemData.narrationTexts);
           setCurrentStep(0);
           setIsPlaying(false);
-          router.replace('/', { scroll: false });
+          // Clear the query param from URL after loading
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('loadProblemId');
+          router.replace(newUrl.pathname + newUrl.search, { scroll: false });
         } else {
           toast({ title: "Error", description: "Could not load the specified problem.", variant: "destructive" });
         }
@@ -59,11 +62,11 @@ export default function SolverPage() {
 
   const resetSolutionState = () => {
     setSolutionSteps([]);
-    setWhiteboardStepTexts([]); // Changed
+    setWhiteboardStepTexts([]); 
     setNarrationTexts([]);
     setCurrentStep(0);
     setIsPlaying(false);
-    cancel(); 
+    if (isSpeaking) cancel(); 
   };
 
   const handleSolve = async (data: { problemText?: string; imageDataUri?: string }) => {
@@ -76,9 +79,9 @@ export default function SolverPage() {
       const result = await solveProblemAction({ problem: data.problemText, imageDataUri: data.imageDataUri });
       
       setProblemStatement(result.problemStatement); 
-      setSolutionSteps(result.solutionSteps);
-      setWhiteboardStepTexts(result.whiteboardStepTexts); // Changed
-      setNarrationTexts(result.narrationTexts);
+      setSolutionSteps(result.solutionSteps); // For display
+      setWhiteboardStepTexts(result.whiteboardStepTexts); // Also for display, currently same as solutionSteps
+      setNarrationTexts(result.narrationTexts); // Speakable texts
 
       if (result.solutionSteps.length === 0 || result.whiteboardStepTexts.length === 0 || result.narrationTexts.length === 0) {
         toast({
@@ -108,57 +111,64 @@ export default function SolverPage() {
   
   const playStepAudio = useCallback((stepIndex: number) => {
     if (isSupported && narrationTexts[stepIndex]) {
-      speak(narrationTexts[stepIndex], () => {
-        if (isPlaying && stepIndex < solutionSteps.length - 1) {
+      speak(narrationTexts[stepIndex], () => { // onEnd callback
+        if (isPlaying && stepIndex < narrationTexts.length - 1) {
           setCurrentStep(prev => prev + 1);
         } else {
           setIsPlaying(false); 
         }
       });
-    } else if (isPlaying && stepIndex < solutionSteps.length - 1) { 
+    } else if (isPlaying && stepIndex < narrationTexts.length - 1) { // TTS not supported, but still playing
+        // Advance step after a delay to simulate audio playback
         setTimeout(() => { 
             if(isPlaying) setCurrentStep(prev => prev + 1);
-        }, 1500); 
-    } else if (isPlaying && stepIndex >= solutionSteps.length - 1) {
+        }, 1500); // Adjust delay as needed
+    } else if (isPlaying && stepIndex >= narrationTexts.length - 1) { // Reached end while playing (without TTS)
         setIsPlaying(false); 
     }
-  }, [isSupported, narrationTexts, speak, isPlaying, solutionSteps.length]);
+  }, [isSupported, narrationTexts, speak, isPlaying]);
 
 
   useEffect(() => {
-    if (isPlaying && solutionSteps.length > 0 && currentStep < solutionSteps.length) {
+    if (isPlaying && narrationTexts.length > 0 && currentStep < narrationTexts.length) {
       playStepAudio(currentStep);
-    } else if (!isPlaying) {
+    } else if (!isPlaying && isSpeaking) { // If manually paused
       cancel(); 
     }
-  }, [isPlaying, currentStep, playStepAudio, solutionSteps, cancel]);
+  }, [isPlaying, currentStep, playStepAudio, narrationTexts, cancel, isSpeaking]);
 
 
   const handlePlayPause = () => {
-    if (solutionSteps.length === 0) return;
-    setIsPlaying(prev => !prev);
-    if (!isPlaying && currentStep >= solutionSteps.length -1 && solutionSteps.length > 0) { 
+    if (narrationTexts.length === 0) return;
+
+    if (!isPlaying && currentStep >= narrationTexts.length - 1 && narrationTexts.length > 0) {
+        // If at the end and play is pressed, reset to the beginning
         setCurrentStep(0);
+        setIsPlaying(true); // Start playing from the beginning
+    } else {
+        setIsPlaying(prev => !prev);
     }
   };
 
   const handleNext = () => {
-    if (currentStep < solutionSteps.length - 1) {
+    if (currentStep < narrationTexts.length - 1) {
       setCurrentStep(prev => prev + 1);
-      if (isPlaying) cancel(); 
+      if (isPlaying || isSpeaking) cancel(); 
     }
   };
 
   const handlePrev = () => {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
-      if (isPlaying) cancel(); 
+      if (isPlaying || isSpeaking) cancel(); 
     }
   };
 
   const handleSeek = (step: number) => {
-    setCurrentStep(step);
-    if (isPlaying) cancel(); 
+    if (step >= 0 && step < narrationTexts.length) {
+      setCurrentStep(step);
+      if (isPlaying || isSpeaking) cancel();
+    }
   };
 
   const handleSaveProblem = () => {
@@ -167,7 +177,7 @@ export default function SolverPage() {
       return;
     }
     try {
-      const solutionData: SolutionData = { problemStatement, solutionSteps, whiteboardStepTexts, narrationTexts }; // Changed
+      const solutionData: SolutionData = { problemStatement, solutionSteps, whiteboardStepTexts, narrationTexts }; 
       saveProblemToGallery(solutionData);
       toast({ title: 'Problem Saved!', description: 'The current problem and solution have been saved to your gallery.' });
     } catch (error) {
@@ -193,16 +203,16 @@ export default function SolverPage() {
                     <p className="text-muted-foreground">{problemStatement}</p>
                 </div>
             )}
-            <WhiteboardDisplay steps={whiteboardStepTexts} currentStep={currentStep} problemStatement={problemStatement} /> {/* Changed */}
+            <WhiteboardDisplay steps={whiteboardStepTexts} currentStep={currentStep} problemStatement={problemStatement} /> 
             <PlaybackControls
-              totalSteps={solutionSteps.length}
+              totalSteps={narrationTexts.length} // Controls should be based on narration texts length
               currentStep={currentStep}
               isPlaying={isPlaying}
               onPlayPause={handlePlayPause}
               onNext={handleNext}
               onPrev={handlePrev}
               onSeek={handleSeek}
-              isInteractive={solutionSteps.length > 0}
+              isInteractive={narrationTexts.length > 0}
             />
             {canSave && (
                 <Button onClick={handleSaveProblem} variant="secondary" className="w-full">

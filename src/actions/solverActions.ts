@@ -32,31 +32,32 @@ export async function solveProblemAction(params: SolveProblemParams): Promise<So
         throw new Error("AI could not analyze the problem or generate a solution.");
     }
     const problemStatement = analysisResult.analyzedProblem;
-    const rawSolutionSteps = analysisResult.solution.split('\n').filter(step => step.trim() !== '');
+    // These are the steps formatted for display (e.g., with <sup> tags)
+    const displaySolutionSteps = analysisResult.solution.split('\n').filter(step => step.trim() !== '');
 
-    if (rawSolutionSteps.length === 0) {
+    if (displaySolutionSteps.length === 0) {
       throw new Error("Could not generate solution steps.");
     }
     
-    // Prepare steps for presentation and narration, ensuring they are not too verbose for single calls
-    const solutionSteps = rawSolutionSteps.map(step => step.substring(0, 1000)); // Truncate steps if too long for narration
-
-    // 2. Generate whiteboard presentation (now text-based)
+    // 2. Generate whiteboard presentation (text-based using display steps)
     const presentationResult = await generateWhiteboardPresentation({
       problem: problemStatement, 
-      solutionSteps: solutionSteps,
+      solutionSteps: displaySolutionSteps, // Use display steps for whiteboard
     });
 
-    // 3. Generate voice narration for each step
+    // 3. Generate voice narration for each step, using display steps as input to get speakable versions
     const narrationTexts: string[] = [];
-    for (const step of solutionSteps) { // Narrate based on the original solution steps
-      const narrationResult = await generateVoiceNarration({ solutionSteps: step });
+    for (const step of displaySolutionSteps) { 
+      // Truncate input to generateVoiceNarration if too long, to avoid issues with TTS or narration model limits.
+      // The narration model is expected to make this speakable, not just echo it.
+      const stepForNarration = step.substring(0, 1000); 
+      const narrationResult = await generateVoiceNarration({ technicalStep: stepForNarration });
       narrationTexts.push(narrationResult.voiceNarration);
     }
     
-    if (presentationResult.presentedSteps.length !== solutionSteps.length || narrationTexts.length !== solutionSteps.length) {
+    if (presentationResult.presentedSteps.length !== displaySolutionSteps.length || narrationTexts.length !== displaySolutionSteps.length) {
         console.warn("Mismatch in generated content lengths", {
-            steps: solutionSteps.length,
+            steps: displaySolutionSteps.length,
             presentedSteps: presentationResult.presentedSteps.length,
             narrations: narrationTexts.length
         });
@@ -64,9 +65,9 @@ export async function solveProblemAction(params: SolveProblemParams): Promise<So
 
     return {
       problemStatement, 
-      solutionSteps, // The core, detailed solution steps
-      whiteboardStepTexts: presentationResult.presentedSteps, // Textual steps for the whiteboard
-      narrationTexts,
+      solutionSteps: displaySolutionSteps, // These are the steps for display (e.g. on whiteboard)
+      whiteboardStepTexts: presentationResult.presentedSteps, // Textual steps for the whiteboard (same as solutionSteps)
+      narrationTexts, // Speakable versions of each step
     };
   } catch (error) {
     console.error('Error in solveProblemAction:', error);
